@@ -1,5 +1,5 @@
 import pygame as pg
-
+import random as rd
 # 오차
 error=1
 
@@ -15,7 +15,7 @@ class Player(pg.sprite.Sprite):
         self.game=game
         self.load_image() # 이미지 로드 함수
         self.size=self.image.get_size() # 이미지 크기를 튜플형식으로 저장합니다
-        self.pos = (50, 10) # 캐릭터 초기 위치 지정.
+        self.pos = (600, 600) # 캐릭터 초기 위치 지정.
         self.rect = pg.Rect(self.pos, self.size) # pygame.Rect 객체로 이미지의 좌표와 크기 데이터를 지정합니다.
         self.dx = 0 # x축 움직임 속도
         self.dy =  0 # y축 움직임 속도
@@ -26,6 +26,7 @@ class Player(pg.sprite.Sprite):
     def load_image(self):
         self.image=pg.image.load("game/resources/character.png")
     
+    # 화면 밖으로 못나가게하기
     def condition(self):
         if self.rect.x<0:
             self.rect.x=0
@@ -37,7 +38,7 @@ class Player(pg.sprite.Sprite):
             self.rect.y=screen_height-self.size[1]
             self.dy=0
             self.jump=True
-
+    # 중력 설정과 움직임
     def update(self):
         if self.gravity==True:
             self.acc=0.1
@@ -51,6 +52,7 @@ class Player(pg.sprite.Sprite):
     def collide(self,sprites):
         for sprite in sprites:
             if pg.sprite.collide_rect(self,sprite):
+                print('ok')
                 return sprite
 # 블럭들 클래스
 class Block(pg.sprite.Sprite):
@@ -66,13 +68,38 @@ class Block(pg.sprite.Sprite):
     def load_image(self):
             self.image=pg.image.load("game/resources/block1.png")
 
+class Bullit(pg.sprite.Sprite):
+    def __init__(self,game):
+        super(Bullit,self).__init__() #부모 클래스 생성자 호출
+        self.game=game
+        self.load_image()
+        self.size=self.image.get_size()
+        self.dy=4
+        self.pos=(rd.randint(390,1050),rd.randint(0,720))
+        self.rect=pg.Rect(self.pos,self.size)
+        # 총알 나오는 범위 랜덤지정
+        self.select=0
+    
+    def load_image(self):
+        self.image=pg.image.load("game/resources/bullit.png")
+
     def collide(self,sprites):
         for sprite in sprites:
-            if pg.sprite.collide_rect(self,sprite):
+            if pg.sprite.collide_rect(self.sprite):
                 return sprite
-
-
-        
+    def update(self):
+        self.rect.y-=self.dy
+        if self.rect.y+self.size[1]<0:
+            # 총알 구역 랜덤 지정
+            self.select=rd.randrange(3)
+            self.rect.y=720
+            if self.select==0:
+               self.rect.x=rd.randint(430,553)
+            elif self.select==1:
+                self.rect.x=rd.randint(610,853)
+            elif self.select==2:
+                self.rect.x=rd.randint(910,1033)
+            
 
 class Game:
     def __init__(self):
@@ -87,6 +114,8 @@ class Game:
         self.onGame = True
         self.newGame()
         
+         
+        
     
     
 
@@ -95,27 +124,33 @@ class Game:
         self.all_sprites=pg.sprite.Group()
         # 캐릭터 객체 생성
         self.player=Player(self)
-        self.blocks=pg.sprite.Group()
-        # 바닥 라인
-        for i in range(10):
-            self.blocks.add(Block(self,i*30,690))
-        for i in range(3):
-            self.blocks.add(Block(self,270,660-(i*31)))
+        self.blocks1=pg.sprite.Group() # 블럭 그룹으로 묶기
+        self.bullits=pg.sprite.Group() # 총알 그룹으로 묶기
+        self.Stage1()
+        self.all_sprites.add([self.player,self.blocks1,self.bullits]) # 스프라이트 묶기
+        self.start_time=pg.time.get_ticks() # 시작 시간 기록
        
-        self.all_sprites.add([self.player,self.blocks]) # 스프라이트 묶기
-
 
         while self.onGame:
             self.clock.tick(60) # 프레임 60
+            self.second=int((pg.time.get_ticks()-self.start_time)/1000) # 현재 시간에서 시작시간을빼어 초 단위로 저장
             self.update()
             self.draw()
             self.events()
             pg.display.update() # 화면 업데이트
+            print(f'{self.player.rect.x}  {self.player.rect.y}')
+            self.wind()
             
+        
+            #print(f'{self.second}')   
     def update(self):
         self.player.update() # 캐릭터 현재 좌표 업데이트
-        self.push(self.blocks)
-
+        self.push(self.blocks1)
+        for sprite in self.bullits: # 총알 새로운 좌표 업데이트
+            sprite.update()
+        if self.player.collide(self.bullits): # 총알이랑 부딪혔는가?
+            self.onGame=False
+        
     def events(self):
         # 이벤트 조건
         event=pg.event.poll()
@@ -135,7 +170,34 @@ class Game:
           
         self.player.condition() # 화면 밖 으로 안나가는 조건
 
-    
+    def Stage1(self):
+        # stage1
+        for i in range(11):
+            self.blocks1.add(Block(self,i*30,690))
+            self.blocks1.add(Block(self,240,660-(i*120)))
+        for i in range(21):
+            self.blocks1.add(Block(self,270,660-(i*30)))
+            self.blocks1.add(Block(self,360,i*30))
+        for i in range(2):
+            self.blocks1.add(Block(self,570,690-i*240))
+            self.blocks1.add(Block(self,870,690-i*240))
+            self.blocks1.add(Block(self,1020+i*30,185))
+        for i in range(5):
+            self.blocks1.add(Block(self,500+i*200,185))
+            # 총 알들
+            self.bullits.add(Bullit(self))
+           
+        # 1층 오른쪽 끝
+        self.blocks1.add(Block(self,1050,550))
+        # 2층 왼쪽 끝
+        self.blocks1.add(Block(self,390,320))
+        
+    def wind(self):
+        if 390<self.player.rect.x and self.player.rect.x< 1020 and self.player.rect.y+self.player.size[1] <210:
+            self.player.rect.x-=1
+
+
+       
         
 
     # 블럭과 충돌 조건들
@@ -145,21 +207,21 @@ class Game:
         p_width=self.player.size[0] # 캐릭터 가로 넓이
         p_height=self.player.size[1] # 캐릭터 세로 길이
         for sprite in sprites:
-            # 왼쪽면 부딪히기
-            if p_x+p_width > sprite.rect.x-error and sprite.rect.x>p_x+error and p_y +p_height>sprite.rect.y+error and p_y < sprite.rect.y+sprite.size[1]-error:
-                self.player.rect.x=sprite.rect.x-sprite.size[0]-error*2
-            # 오른쪽 면 부딪히기
-            if p_x < sprite.rect.x+sprite.size[0]+error and p_x+p_width > sprite.rect.x+sprite.size[0] and p_y+p_height>sprite.rect.y and p_y <sprite.rect.y+sprite.size[1] - error:
-                self.player.rect.x=sprite.rect.x+sprite.size[0]+error*2
+            # 왼쪽 변 부딪히기
+            if p_x+p_width > sprite.rect.x-error*2 and sprite.rect.x>p_x+error and p_y +p_height>sprite.rect.y+error and p_y < sprite.rect.y+sprite.size[1]-error:
+                self.player.rect.x-=self.player.speed
+            # 오른쪽 변 부딪히기
+            if p_x < sprite.rect.x+sprite.size[0]+error*2 and p_x+p_width > sprite.rect.x+sprite.size[0] and p_y+p_height>sprite.rect.y and p_y <sprite.rect.y+sprite.size[1] - error:
+                self.player.rect.x+=self.player.speed
                
             # 블럭 밑변에 부딪히기
-            if p_x+p_width >= sprite.rect.x and sprite.rect.x+sprite.size[0] >=p_x and p_y +p_height > sprite.rect.y+sprite.size[1] and p_y < sprite.rect.y+sprite.size[1]+(error*2):
-                #print('ok')
+            if p_x+p_width > sprite.rect.x and sprite.rect.x+sprite.size[0] >p_x and p_y +p_height > sprite.rect.y+sprite.size[1] and p_y < sprite.rect.y+sprite.size[1]+(error*2):
+                print('ok')
                 self.player.dy=4
                 p_y=sprite.rect.y+sprite.size[1]+error
                 self.player.gravity=True
             
-            # 블럭위에 서있기 
+            # 블럭 위쪽 변 위에 서있기 
             if p_x+p_width>sprite.rect.x and p_x < sprite.rect.x+sprite.size[0] and p_y+p_height >= sprite.rect.y - error  and p_y<=sprite.rect.y:
                 self.player.gravity=False
                 self.player.jump=True
