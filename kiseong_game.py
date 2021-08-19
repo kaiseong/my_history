@@ -15,7 +15,7 @@ class Player(pg.sprite.Sprite):
         self.game=game
         self.load_image() # 이미지 로드 함수
         self.size=self.image.get_size() # 이미지 크기를 튜플형식으로 저장합니다
-        self.pos = (600, 600) # 캐릭터 초기 위치 지정.
+        self.pos = (570, 500) # 캐릭터 초기 위치 지정.
         self.rect = pg.Rect(self.pos, self.size) # pygame.Rect 객체로 이미지의 좌표와 크기 데이터를 지정합니다.
         self.dx = 0 # x축 움직임 속도
         self.dy =  0 # y축 움직임 속도
@@ -30,14 +30,11 @@ class Player(pg.sprite.Sprite):
     def condition(self):
         if self.rect.x<0:
             self.rect.x=0
-        elif self.rect.x+self.size[0]>screen_width:
+        elif self.rect.x+self.size[0]>screen_width and self.rect.y>164: # 출구 제외오른쪽 창 밖으로 못 나가는 조건
             self.rect.x=screen_width-self.size[0]
         if self.rect.y<0:
             self.rect.y=0
-        elif self.rect.y+self.size[1]>screen_height:
-            self.rect.y=screen_height-self.size[1]
-            self.dy=0
-            self.jump=True
+        
     # 중력 설정과 움직임
     def update(self):
         if self.gravity==True:
@@ -52,7 +49,6 @@ class Player(pg.sprite.Sprite):
     def collide(self,sprites):
         for sprite in sprites:
             if pg.sprite.collide_rect(self,sprite):
-                print('ok')
                 return sprite
 # 블럭들 클래스
 class Block(pg.sprite.Sprite):
@@ -99,8 +95,7 @@ class Bullit(pg.sprite.Sprite):
                 self.rect.x=rd.randint(610,853)
             elif self.select==2:
                 self.rect.x=rd.randint(910,1033)
-            
-
+        
 class Game:
     def __init__(self):
         pg.init() # 초기화 작업
@@ -114,21 +109,24 @@ class Game:
         self.onGame = True
         self.newGame()
         
-         
-        
-    
-    
 
     def newGame(self):
-        self.start=False
-        self.all_sprites=pg.sprite.Group()
+        self.all_sprites1=pg.sprite.Group()
+        self.all_sprites2=pg.sprite.Group()
         # 캐릭터 객체 생성
         self.player=Player(self)
         self.blocks1=pg.sprite.Group() # 블럭 그룹으로 묶기
-        self.bullits=pg.sprite.Group() # 총알 그룹으로 묶기
+        self.blocks2=pg.sprite.Group() 
+        self.bullits1=pg.sprite.Group() # 총알 그룹으로 묶기
+        self.bullits2=pg.sprite.Group()
         self.Stage1()
-        self.all_sprites.add([self.player,self.blocks1,self.bullits]) # 스프라이트 묶기
+        self.Stage2()
+        self.all_sprites1.add([self.player,self.blocks1,self.bullits1]) # 스프라이트 묶기
+        self.all_sprites2.add([self.player,self.blocks2,self.bullits2])
+        
         self.start_time=pg.time.get_ticks() # 시작 시간 기록
+        # 스테이지 번호
+        self.SN=1
        
 
         while self.onGame:
@@ -137,20 +135,27 @@ class Game:
             self.update()
             self.draw()
             self.events()
-            pg.display.update() # 화면 업데이트
-            print(f'{self.player.rect.x}  {self.player.rect.y}')
-            self.wind()
+            self.died()
             
+            print(f'{self.player.rect.x}  {self.player.rect.y}')
+            if self.SN==1:
+                self.wind()
+            pg.display.update() # 화면 업데이트
         
             #print(f'{self.second}')   
     def update(self):
         self.player.update() # 캐릭터 현재 좌표 업데이트
         self.push(self.blocks1)
-        for sprite in self.bullits: # 총알 새로운 좌표 업데이트
+        self.push(self.blocks2)
+        for sprite in self.bullits1: # 총알 새로운 좌표 업데이트
             sprite.update()
-        if self.player.collide(self.bullits): # 총알이랑 부딪혔는가?
+    
+    def died(self):
+        if self.player.collide(self.bullits1): # 총알이랑 부딪혔는가?
             self.onGame=False
-        
+        if self.player.rect.y>screen_height+50:
+            self.onGame=False # 화면 밖으로 떨어졌는가?
+
     def events(self):
         # 이벤트 조건
         event=pg.event.poll()
@@ -169,7 +174,12 @@ class Game:
                 self.player.dx=0
           
         self.player.condition() # 화면 밖 으로 안나가는 조건
-
+        
+        if self.player.rect.x>screen_width and self.player.rect.y<164: # 다음 스테이지 넘어가는 조건
+            self.player.rect.x=50
+            self.player.rect.y=600    
+            self.SN+=1
+   
     def Stage1(self):
         # stage1
         for i in range(11):
@@ -185,20 +195,20 @@ class Game:
         for i in range(5):
             self.blocks1.add(Block(self,500+i*200,185))
             # 총 알들
-            self.bullits.add(Bullit(self))
+            self.bullits1.add(Bullit(self))
            
         # 1층 오른쪽 끝
         self.blocks1.add(Block(self,1050,550))
         # 2층 왼쪽 끝
         self.blocks1.add(Block(self,390,320))
-        
+    
+    def Stage2(self):
+        for i in range(11):
+            self.blocks2.add(Block(self,i*30,690))
+
     def wind(self):
         if 390<self.player.rect.x and self.player.rect.x< 1020 and self.player.rect.y+self.player.size[1] <210:
             self.player.rect.x-=1
-
-
-       
-        
 
     # 블럭과 충돌 조건들
     def push(self,sprites):
@@ -232,18 +242,15 @@ class Game:
                self.player.rect.y=sprite.rect.y-p_height-1
                self.player.dy=0
                self.player.acc=0 
+  
     # 그리기 함수 
     def draw(self):
         self.screen.blit(self.background,(0,0)) # 배경 그리기
-        self.all_sprites.draw(self.screen) # 캐릭터 그리기
-
+        if self.SN==1:
+            self.all_sprites1.draw(self.screen) # 캐릭터 그리기
+        elif self.SN==2:
+            self.all_sprites2.draw(self.screen)
         pg.display.flip() # 화면 업데이트
         
 if __name__=='__main__':
     game=Game()
-
-
-
-
-
-        
